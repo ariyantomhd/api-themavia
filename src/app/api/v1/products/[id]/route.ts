@@ -6,10 +6,11 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 // 🌟 Fixed: 'Product' is now actively used to strictly type database entity returns
 import { Product } from '@/types/marketplace';
 
+// 🌟 Diperbarui untuk Next.js 15: params sekarang wajib berbentuk Promise
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 /**
@@ -18,7 +19,8 @@ interface RouteParams {
  */
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    // 🌟 Diperbarui untuk Next.js 15: wajib di-await sebelum digunakan
+    const { id } = await params;
 
     if (!id) {
       return ApiResponseHelper.badRequest('Target product ID parameter is required.');
@@ -50,7 +52,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
  */
 export async function PUT(req: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    // 🌟 Diperbarui untuk Next.js 15: wajib di-await sebelum digunakan
+    const { id } = await params;
 
     // 1. RBAC Guard Shield
     const user = await verifyToken(req);
@@ -101,7 +104,8 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    // 🌟 Diperbarui untuk Next.js 15: wajib di-await sebelum digunakan
+    const { id } = await params;
 
     // 1. Absolute Authority Guard: Only administrative roles can delete items
     const user = await verifyToken(req);

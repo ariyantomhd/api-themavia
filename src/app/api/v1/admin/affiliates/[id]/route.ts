@@ -4,17 +4,23 @@ import { verifyToken } from '@/middlewares/auth/verifyToken';
 import { checkRole } from '@/middlewares/rbac/checkRole';
 
 // 1. GET: Detail Mitra Afiliasi
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  req: NextRequest, 
+  { params }: { params: Promise<{ id: string }> } // params sekarang Promise
+) {
   try {
+    const { id } = await params; // Wajib di-await!
+    
     const adminUser = await verifyToken(req);
-    if (!adminUser || !checkRole(adminUser.role ?? '', ['admin'])) {
+    // checkRole bersifat async, jadi wajib di-await
+    if (!adminUser || !(await checkRole(adminUser.id, ['admin']))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const { data, error } = await supabaseAdmin
       .from('affiliates')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error) throw error;
@@ -26,10 +32,16 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // 2. PATCH: Update Status (Approve/Reject/Ban)
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(
+  req: NextRequest, 
+  { params }: { params: Promise<{ id: string }> } // params sekarang Promise
+) {
   try {
+    const { id } = await params; // Wajib di-await!
+
     const adminUser = await verifyToken(req);
-    if (!adminUser || !checkRole(adminUser.role ?? '', ['admin'])) {
+    // checkRole bersifat async, jadi wajib di-await
+    if (!adminUser || !(await checkRole(adminUser.id, ['admin']))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -38,7 +50,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const { error } = await supabaseAdmin
       .from('affiliates')
       .update({ status })
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) throw error;
     return NextResponse.json({ message: 'Affiliate status updated' });

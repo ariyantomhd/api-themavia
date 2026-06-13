@@ -4,17 +4,23 @@ import { verifyToken } from '@/middlewares/auth/verifyToken';
 import { checkRole } from '@/middlewares/rbac/checkRole';
 
 // 1. GET: Detail Produk berdasarkan ID
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  req: NextRequest, 
+  { params }: { params: Promise<{ id: string }> } // Gunakan Promise
+) {
   try {
+    const { id } = await params; // Wajib di-await
+
     const adminUser = await verifyToken(req);
-    if (!adminUser || !checkRole(adminUser.role ?? '', ['admin'])) {
+    // checkRole bersifat async, jadi wajib di-await
+    if (!adminUser || !(await checkRole(adminUser.id, ['admin']))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const { data, error } = await supabaseAdmin
       .from('products')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error) throw error;
@@ -26,10 +32,15 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // 2. PATCH: Update sebagian data produk
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(
+  req: NextRequest, 
+  { params }: { params: Promise<{ id: string }> } // Gunakan Promise
+) {
   try {
+    const { id } = await params; // Wajib di-await
+
     const adminUser = await verifyToken(req);
-    if (!adminUser || !checkRole(adminUser.role ?? '', ['admin'])) {
+    if (!adminUser || !(await checkRole(adminUser.id, ['admin']))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -37,7 +48,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const { error } = await supabaseAdmin
       .from('products')
       .update(body)
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) throw error;
     return NextResponse.json({ message: 'Product updated successfully' });
@@ -48,17 +59,22 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // 3. DELETE: Hapus produk
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  req: NextRequest, 
+  { params }: { params: Promise<{ id: string }> } // Gunakan Promise
+) {
   try {
+    const { id } = await params; // Wajib di-await
+
     const adminUser = await verifyToken(req);
-    if (!adminUser || !checkRole(adminUser.role ?? '', ['admin'])) {
+    if (!adminUser || !(await checkRole(adminUser.id, ['admin']))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const { error } = await supabaseAdmin
       .from('products')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) throw error;
     return NextResponse.json({ message: 'Product deleted successfully' });

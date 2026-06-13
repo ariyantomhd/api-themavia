@@ -1,60 +1,51 @@
 import { NextRequest } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin'; // 🟢 Ganti ke admin murni untuk server-side
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
-export interface AuthenticatedRequest extends NextRequest {
-  user?: {
-    id: string;
-    email?: string;
-    role?: string;
-  };
+export interface SessionUser {
+  id: string;
+  email?: string;
+  name?: string;
+  role?: string;
 }
 
 /**
- * Memvalidasi token JWT dari header Authorization (Bearer Token)
- * Mengembalkan objek user jika valid, atau null jika tidak valid/expired.
+ * Memvalidasi token JWT dan mengambil metadata user secara lengkap.
  */
-export async function verifyToken(req: NextRequest) {
+export async function verifyToken(req: NextRequest): Promise<SessionUser | null> {
   try {
-    // Ambil header dengan toleransi case-insensitive alternatif jika "authorization" kosong
     const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.warn('⚠️ [VerifyToken] Handshake gagal: Header Authorization tidak ditemukan atau format bukan Bearer.');
       return null;
     }
 
-    // Bersihkan token dari spasi yang tidak sengaja terbawa
     const token = authHeader.split(' ')[1]?.trim();
+    if (!token) return null;
 
-    if (!token) {
-      console.warn('⚠️ [VerifyToken] Handshake gagal: String token kosong setelah diekstrak.');
-      return null;
-    }
-
-    // 🟢 VERIFIKASI LANGSUNG DI SERVER: Gunakan admin auth ledger untuk mengambil data user aktif
+    // Verifikasi token via Supabase Admin
     const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
 
     if (error || !user) {
-      console.error('❌ [VerifyToken] Supabase menolak token:', error?.message || 'User tidak ditemukan.');
+      console.error('❌ [VerifyToken] Supabase menolak token:', error?.message);
       return null;
     }
 
-    // Kembalikan struktur data user yang sah untuk dipakai di Route /api/v1/auth/me
+    // Mengembalikan data user dengan menyertakan name dari user_metadata
     return {
       id: user.id,
       email: user.email,
-      role: user.role,
+      // Penting: Mengambil full_name dari user_metadata sesuai skema Supabase Auth
+      name: user.user_metadata?.full_name || user.user_metadata?.name || 'User',
+      role: user.user_metadata?.role || 'buyer',
     };
   } catch {
-    // Variabel 'err' dihapus agar lolos sensor aturan ketat ESLint Abang
-    console.error('💥 [VerifyToken] Fatal crash saat parsing token.');
+    console.error('💥 [VerifyToken] Fatal error.');
     return null;
   }
 }
 
 /**
- * Memeriksa apakah user memiliki salah satu role yang diizinkan di database.
- * Memanfaatkan supabaseAdmin untuk membaca tabel profil user secara aman.
+ * Memeriksa role user di database (bukan metadata) agar selalu sinkron dengan DB.
  */
 export async function checkRole(userId: string, allowedRoles: string[]): Promise<boolean> {
   try {
@@ -64,13 +55,10 @@ export async function checkRole(userId: string, allowedRoles: string[]): Promise
       .eq('id', userId)
       .single();
 
-    if (error || !profile) {
-      return false;
-    }
+    if (error || !profile) return false;
 
     return allowedRoles.includes(profile.role);
   } catch {
-    // Variabel err dihapus karena tidak digunakan
     return false;
   }
 }

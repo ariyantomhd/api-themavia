@@ -1,55 +1,43 @@
-import { NextRequest } from 'next/server';
-import { ApiResponseHelper } from '@/utils/http/response';
+import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import { verifyToken } from '@/middlewares/auth/verifyToken';
 import { checkRole } from '@/middlewares/rbac/checkRole';
-import { supabaseAdmin } from '@/lib/supabase/admin';
 
-// [GET] Tarik seluruh list data performa affiliator untuk dipantau Admin
+interface Affiliate {
+  id: string;
+  name: string;
+  email: string;
+  earnings: number;
+  referral_count: number;
+  status: string;
+}
+
 export async function GET(req: NextRequest) {
   try {
-    // 1. KEAMANAN: Validasi hak akses Admin/Owner
     const adminUser = await verifyToken(req);
-    if (!adminUser || !checkRole(adminUser.role || 'buyer', ['admin'])) {
-      return ApiResponseHelper.forbidden('Access denied. Admin clearance level required.');
+    if (!adminUser || !checkRole(adminUser.role ?? '', ['admin'])) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // 2. QUERY UTAMA: Ambil daftar user yang terdaftar sebagai affiliate
-    // Kita urutkan berdasarkan saldo komisi terbesar (Top Affiliator)
-    const { data: affiliates, error } = await supabaseAdmin
-      .from('profiles')
-      .select(`
-        id,
-        email,
-        full_name,
-        affiliate_balance,
-        is_affiliate,
-        created_at
-      `)
-      .eq('is_affiliate', true)
-      .order('affiliate_balance', { ascending: false });
+    const { data, error } = await supabaseAdmin
+      .from('affiliates')
+      .select('id, name, email, earnings, referral_count, status')
+      .order('earnings', { ascending: false });
 
     if (error) throw error;
 
-    // 3. ENHANCEMENT ANALYTICS (Opsional): Gabungkan dengan metrik performa eksternal
-    // Di sini kita bisa memetakan total klik link atau jumlah transaksi yang mereka hasilkan
-    const enrichedAffiliates = await Promise.all(
-      (affiliates || []).map(async (aff) => {
-        // Hitung berapa kali link milik affiliate ini menghasilkan penjualan sukses
-        const { count: totalSales } = await supabaseAdmin
-          .from('transactions')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'success')
-          .eq('affiliate_name', aff.full_name); // Atau relasi id affiliate jika ada
+    const formatted = (data as Affiliate[]).map(a => ({
+      id: a.id,
+      name: a.name,
+      email: a.email,
+      earnings: a.earnings,
+      referrals: a.referral_count,
+      status: a.status
+    }));
 
-        return {
-          ...aff,
-          total_successful_referrals: totalSales || 0
-        };
-      })
-    );
-
-    return ApiResponseHelper.success(enrichedAffiliates, 'Global affiliate performance metrics compiled successfully.');
-  } catch (error: unknown) {
-    return ApiResponseHelper.badRequest(error instanceof Error ? error.message : 'Affiliate Admin API failed.');
+    return NextResponse.json(formatted);
+  } catch (err) {
+    console.error("GET Affiliates List Error:", err);
+    return NextResponse.json({ error: 'Failed to fetch list' }, { status: 500 });
   }
 }

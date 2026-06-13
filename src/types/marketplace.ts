@@ -326,3 +326,16 @@ export interface GatewayWebhookPayload {
   providerReferenceId: string;
   affiliateCode?: string;
 }
+
+// Tambahkan di marketplace.ts
+export interface DashboardOverviewResponse {
+  user: {
+    name: string;
+    email: string;
+  };
+  stats: {
+    totalInvested: number;
+    assetsOwned: number;
+  };
+  recentActivity: Order[]; // Menggunakan interface Order yang sudah ada
+}

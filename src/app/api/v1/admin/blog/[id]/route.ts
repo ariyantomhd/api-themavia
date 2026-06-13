@@ -3,15 +3,14 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { verifyToken } from '@/middlewares/auth/verifyToken';
 import { checkRole } from '@/middlewares/rbac/checkRole';
 
-export async function POST(req: NextRequest) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const adminUser = await verifyToken(req);
   if (!adminUser || !checkRole(adminUser.role ?? '', ['admin'])) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const body = await req.json();
-  const { data, error } = await supabaseAdmin.from('posts').insert([body]);
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  const { error } = await supabaseAdmin.from('posts').delete().eq('id', params.id);
+  if (error) return NextResponse.json({ error: 'Gagal menghapus' }, { status: 500 });
+  
+  return NextResponse.json({ success: true });
 }

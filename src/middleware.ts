@@ -1,15 +1,13 @@
-// src/middleware.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
+  // 1. Tentukan Origin
   const origin = request.headers.get('origin');
-  const allowedOrigin = 'https://www.themavia.com';
-  
-  // Jika origin tidak ada (bukan dari browser), tetap izinkan ke domain utama kita
-  const responseOrigin = origin && origin === allowedOrigin ? origin : allowedOrigin;
+  const allowedOrigin = 'http://localhost:5173';
+  const responseOrigin = (origin && origin === allowedOrigin) ? origin : allowedOrigin;
 
-  // Tangani Preflight (OPTIONS)
+  // 2. Jika ini adalah Preflight (OPTIONS), berikan respon langsung
   if (request.method === 'OPTIONS') {
     return new NextResponse(null, {
       status: 200,
@@ -17,14 +15,14 @@ export function middleware(request: NextRequest) {
         'Access-Control-Allow-Origin': responseOrigin,
         'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Max-Age': '86400', // Cache preflight selama 24 jam
+        'Access-Control-Max-Age': '86400',
       },
     });
   }
 
+  // 3. Lanjutkan request, tapi tambahkan header CORS ke response
   const response = NextResponse.next();
   
-  // Tambahkan header CORS ke respon standar
   response.headers.set('Access-Control-Allow-Origin', responseOrigin);
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -32,8 +30,7 @@ export function middleware(request: NextRequest) {
   return response;
 }
 
-// PERBAIKAN: Ubah matcher agar menangkap path /api/v1/... 
-// Sesuai dengan struktur folder backend Abang (src/app/api/v1/...)
+// Gunakan array untuk matcher yang lebih eksplisit
 export const config = {
-  matcher: '/api/v1/:path*', 
+  matcher: ['/api/v1/:path*'],
 };

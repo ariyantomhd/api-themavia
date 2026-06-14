@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   // 1. Tentukan Origin
   const origin = request.headers.get('origin');
-  const allowedOrigin = 'https://www.themavia.com/';
+  const allowedOrigin = 'https://www.themavia.com';
   const responseOrigin = (origin && origin === allowedOrigin) ? origin : allowedOrigin;
 
   // 2. Jika ini adalah Preflight (OPTIONS), berikan respon langsung

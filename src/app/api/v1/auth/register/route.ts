@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ApiResponseHelper } from '@/utils/http/response';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { sendEmail } from '@/lib/email';
 
 /**
  * 🔐 Role Definition (SYNC WITH DATABASE)
@@ -12,7 +13,6 @@ const USER_ROLES = {
 
 type UserRole = typeof USER_ROLES[keyof typeof USER_ROLES];
 
-// 🌐 Helper membuat surat izin akses khusus untuk domain FE Themavia
 function getCorsHeaders(req: NextRequest) {
   const origin = req.headers.get('origin') || '*';
   return {
@@ -32,9 +32,7 @@ export async function POST(req: NextRequest) {
 
     // 1. ✅ Validation
     if (!email || !password || !username) {
-      const response = ApiResponseHelper.badRequest(
-        'Missing mandatory payload registry information.'
-      );
+      const response = ApiResponseHelper.badRequest('Missing mandatory payload registry information.');
       Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
       return response;
     }
@@ -67,7 +65,7 @@ export async function POST(req: NextRequest) {
     // 3. 🧠 Role
     const assignedRole: UserRole = USER_ROLES.USER;
 
-    // 4. 🧱 UPSERT PROFILE (🔥 ANTI DUPLICATE)
+    // 4. 🧱 UPSERT PROFILE
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .upsert(
@@ -78,16 +76,12 @@ export async function POST(req: NextRequest) {
           username: normalizedUsername,
           role: assignedRole,
         },
-        {
-          onConflict: 'id',
-        }
+        { onConflict: 'id' }
       );
 
-    // 5. ❌ Error Handling (SMART)
+    // 5. ❌ Error Handling
     if (profileError) {
       console.error('❌ DB ERROR:', profileError);
-
-      // ❌ Jangan delete user kalau duplicate
       if (profileError.message?.includes('duplicate key')) {
         const response = ApiResponseHelper.success(
           { userId, email, role: assignedRole },
@@ -97,22 +91,32 @@ export async function POST(req: NextRequest) {
         Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
         return response;
       }
-
-      if (profileError.message?.includes('profiles_role_check')) {
-        const response = ApiResponseHelper.badRequest('Invalid role assignment.');
-        Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
-        return response;
-      }
-
-      // 🔥 Critical error → baru cleanup
       await supabaseAdmin.auth.admin.deleteUser(userId);
-
       const response = ApiResponseHelper.badRequest(`Database error: ${profileError.message}`);
       Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
       return response;
     }
 
-    // 6. ✅ SUCCESS (Status 201 Created)
+    // 6. 📧 Kirim Email Sambutan dengan Detailed Logging (Type-Safe)
+    try {
+      console.log("Mencoba mengirim email ke:", email);
+      const emailResult = await sendEmail(
+        email,
+        "Selamat Datang di Themavia!",
+        `<h1>Halo, ${username}!</h1>
+         <p>Terima kasih telah bergabung dengan <strong>Themavia Marketplace</strong>.</p>
+         <p>Akun Anda telah berhasil dibuat. Silakan login untuk mulai menjelajahi template dan aset digital kami.</p>
+         <br>
+         <p>Salam hangat,<br>Themavia Team</p>`
+      );
+      console.log("✅ Email sukses terkirim. Message ID:", emailResult.messageId);
+    } catch (emailError: unknown) {
+      const errorMessage = emailError instanceof Error ? emailError.message : String(emailError);
+      console.error("❌ Gagal kirim email:", errorMessage);
+      console.error("❌ Detail Error:", emailError); 
+    }
+
+    // 7. ✅ SUCCESS
     const response = ApiResponseHelper.success(
       {
         userId,
@@ -127,16 +131,13 @@ export async function POST(req: NextRequest) {
 
   } catch (error: unknown) {
     console.error('❌ REGISTER ERROR:', error);
-
     const message = error instanceof Error ? error.message : 'Registration process failure.';
     const response = ApiResponseHelper.badRequest(message);
-    
     Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
     return response;
   }
 }
 
-// 🌟 WAJIB: Menjawab jabat tangan (Preflight Request) dari browser internet Frontend
 export async function OPTIONS(req: NextRequest) {
   const headers = getCorsHeaders(req);
   return new NextResponse(null, { status: 204, headers });

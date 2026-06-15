@@ -3,29 +3,42 @@ import { ApiResponseHelper } from '@/utils/http/response';
 import { createClient } from '@/lib/supabase/client';
 
 export async function GET(req: NextRequest) {
+  // 1. CEK API KEY (Proteksi Akses)
+  const secretKey = req.headers.get('x-api-secret');
+  const expectedSecret = process.env.API_SECRET_KEY;
+
+  if (!expectedSecret || secretKey !== expectedSecret) {
+    return ApiResponseHelper.error('Access denied', 403);
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const supabase = createClient();
 
-    // Ambil parameter dengan tipe data yang eksplisit
+    // 2. Sanitasi input
     const category = searchParams.get('category') || undefined;
     const sort = searchParams.get('sort') || 'newest';
     const minPrice = Number(searchParams.get('minPrice')) || 0;
     const maxPrice = Number(searchParams.get('maxPrice')) || 1000;
 
-    // Build Query Supabase
+    // 3. Tentukan kolom publik
+    const publicColumns = `
+      id, name, description, price, discountPrice, 
+      rating, sales, previewUrl, categoryId, slug, 
+      platform, isPopular, isFeatured, isFlashSale
+    `;
+
+    // 4. Build Query
     let query = supabase
       .from('products')
-      .select('*')
+      .select(publicColumns)
       .gte('price', minPrice)
       .lte('price', maxPrice);
 
-    // Perbaikan: Gunakan 'categoryId' sesuai skema tabel Abang
     if (category) {
       query = query.eq('categoryId', category);
     }
 
-    // Perbaikan: Gunakan 'createdAt' (CamelCase) sesuai skema tabel Abang
     if (sort === 'newest') {
       query = query.order('createdAt', { ascending: false });
     } else if (sort === 'price-low') {
@@ -41,9 +54,8 @@ export async function GET(req: NextRequest) {
     }
 
     return ApiResponseHelper.success(data || [], 'Marketplace data extracted.');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Gagal mengambil data.';
-    console.error('❌ [API Error]:', error);
-    return ApiResponseHelper.error(message, 500);
+    return ApiResponseHelper.error('Gagal mengambil data.', 500);
   }
 }

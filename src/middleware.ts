@@ -7,6 +7,9 @@ export function middleware(request: NextRequest) {
   const allowedOrigin = 'http://localhost:5173';
   const responseOrigin = (origin && origin === allowedOrigin) ? origin : allowedOrigin;
 
+  // Daftar header yang diizinkan (TAMBAHKAN x-api-secret DI SINI)
+  const allowedHeaders = 'Content-Type, Authorization, x-api-secret';
+
   // 2. Jika ini adalah Preflight (OPTIONS), berikan respon langsung
   if (request.method === 'OPTIONS') {
     return new NextResponse(null, {
@@ -14,7 +17,7 @@ export function middleware(request: NextRequest) {
       headers: {
         'Access-Control-Allow-Origin': responseOrigin,
         'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': allowedHeaders,
         'Access-Control-Max-Age': '86400',
       },
     });
@@ -25,7 +28,7 @@ export function middleware(request: NextRequest) {
   
   response.headers.set('Access-Control-Allow-Origin', responseOrigin);
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.headers.set('Access-Control-Allow-Headers', allowedHeaders);
 
   return response;
 }

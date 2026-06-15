@@ -2,35 +2,62 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/middlewares/auth/verifyToken';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
+// Interface eksplisit agar tidak pakai 'any'
+interface VerifiedUser {
+  id: string;
+  email?: string;
+  name?: string;
+  user_metadata?: { name?: string };
+}
+
+interface Order {
+  total_price: number | null;
+}
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': 'http://localhost:5173',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Credentials': 'true',
+};
+
 export async function GET(req: NextRequest) {
+  if (req.method === 'OPTIONS') return new NextResponse(null, { headers: corsHeaders });
+
   try {
-    const sessionUser = await verifyToken(req);
-    
-    if (!sessionUser) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    // 1. Token Handling
+    let token = req.headers.get('authorization')?.replace('Bearer ', '');
+    if (!token) {
+      const cookie = req.cookies.getAll().find(c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'));
+      if (cookie) {
+        const decoded = JSON.parse(Buffer.from(cookie.value.replace('base64-', ''), 'base64').toString());
+        token = decoded.access_token;
+        if (token) req.headers.set('authorization', `Bearer ${token}`);
+      }
     }
 
-    const { data: orders, error: dbError } = await supabaseAdmin
+    // 2. Auth & DB
+    const sessionUser = await verifyToken(req) as VerifiedUser | null;
+    if (!sessionUser) return NextResponse.json({ message: 'Unauthorized' }, { status: 401, headers: corsHeaders });
+
+    const { data: orders } = await supabaseAdmin
       .from('orders')
       .select('total_price')
       .eq('user_id', sessionUser.id);
 
-    // Kalau mau lebih aman, bisa cek dbError di sini
-    if (dbError) throw new Error('Database query failed');
+    // 3. Response
+    const orderList = (orders || []) as Order[];
+    const userName = sessionUser.user_metadata?.name || sessionUser.name || sessionUser.email || 'User';
 
     return NextResponse.json({
-      user: { 
-        name: sessionUser.name 
-      },
+      user: { name: userName },
       stats: {
-        totalInvested: orders?.reduce((acc, curr) => acc + (curr.total_price || 0), 0) || 0,
-        assetsOwned: orders?.length || 0,
-      }
-    });
+        totalInvested: orderList.reduce((acc, cur) => acc + (cur.total_price || 0), 0),
+        assetsOwned: orderList.length,
+      },
+    }, { headers: corsHeaders });
 
-  } catch (error) {
-    // Gunakan 'error' untuk logging agar ESLint tidak protes
-    console.error('[DASHBOARD_API_ERROR]:', error);
-    return NextResponse.json({ message: 'Gagal memuat dashboard' }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ message: 'Error' }, { status: 500, headers: corsHeaders });
   }
 }

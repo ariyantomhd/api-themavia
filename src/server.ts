@@ -58,8 +58,8 @@ const corsOptions: cors.CorsOptions = {
 // Pasang CORS Middleware
 app.use(cors(corsOptions));
 
-// Menangani Preflight Requests (OPTIONS) secara manual & eksplisit
-app.options('*', cors(corsOptions));
+// Menangani Preflight Requests (OPTIONS) menggunakan syntax Express v5 yang valid
+app.options('{*splat}', cors(corsOptions));
 
 // 2. Rate Limiting
 const limiter = rateLimit({

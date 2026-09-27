@@ -24,14 +24,15 @@ dotenv.config();
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
 
-// 1. Keamanan Header (Sesuaikan crossOriginResourcePolicy agar tidak memblokir fetch)
+// 1. Keamanan Header (Helmet Konfigurasi Cross-Origin)
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
+    crossOriginOpenerPolicy: { policy: 'unsafe-none' },
   })
 );
 
-// Configuration CORS untuk mendukung Multiple Origin & Localhost Development
+// Configuration CORS untuk mendukung Multiple Origin
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5000',
@@ -46,20 +47,35 @@ const corsOptions: cors.CorsOptions = {
     if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
       callback(null, true);
     } else {
-      callback(null, true); // Ubah ke Error jika ingin memblokir domain luar secara ketat
+      // Izinkan origin yang melakukan request agar tidak memicu CORS error di production
+      callback(null, origin);
     }
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Allow-Origin',
+  ],
   credentials: true,
   optionsSuccessStatus: 200,
 };
 
-// Pasang CORS Middleware
+// Pasang CORS Middleware secara global (menangani request standar & preflight otomatis)
 app.use(cors(corsOptions));
 
-// Menangani Preflight Requests (OPTIONS) menggunakan syntax Express v5 yang valid
-app.options('{*splat}', cors(corsOptions));
+// Direct Preflight Handling untuk Express v5 (Menghindari wildcard routing error)
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    return cors(corsOptions)(req, res, () => {
+      res.sendStatus(200);
+    });
+  }
+  next();
+});
 
 // 2. Rate Limiting
 const limiter = rateLimit({

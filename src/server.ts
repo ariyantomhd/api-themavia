@@ -1,5 +1,5 @@
 // src/server.ts
-import express, { Application } from 'express';
+import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -43,12 +43,10 @@ const allowedOrigins = [
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    // Memungkinkan request tanpa origin (seperti Postman, Curl, atau Server-to-Server)
-    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      // Izinkan origin yang melakukan request agar tidak memicu CORS error di production
-      callback(null, origin);
+      callback(null, true); // Tetap izinkan untuk menghindari crash browser di lingkungan Vercel
     }
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -64,15 +62,17 @@ const corsOptions: cors.CorsOptions = {
   optionsSuccessStatus: 200,
 };
 
-// Pasang CORS Middleware secara global (menangani request standar & preflight otomatis)
+// Pasang CORS Middleware secara global
 app.use(cors(corsOptions));
 
-// Direct Preflight Handling untuk Express v5 (Menghindari wildcard routing error)
-app.use((req, res, next) => {
+// Direct Handling Preflight Request (HTTP OPTIONS) untuk memastiikan header CORS terisi
+app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.method === 'OPTIONS') {
-    return cors(corsOptions)(req, res, () => {
-      res.sendStatus(200);
-    });
+    res.header('Access-Control-Allow-Origin', req.headers.origin || 'https://www.themavia.com');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    return res.status(200).end();
   }
   next();
 });
@@ -96,11 +96,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // 4. Health Check & Root Route
-app.get('/', (_req, res) => {
+app.get('/', (_req: Request, res: Response) => {
   res.json({ message: 'Welcome to tmv-hub API Server!' });
 });
 
-app.get('/health', (_req, res) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'OK', message: 'TMV Hub API Server Running Healthy' });
 });
 

@@ -1,5 +1,5 @@
 // src/server.ts
-import express, { Application, Request, Response, NextFunction } from 'express';
+import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -24,6 +24,9 @@ dotenv.config();
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
 
+// Diperlukan agar Express membaca IP asli client jika berada di belakang Vercel/Cloudflare/Reverse Proxy
+app.set('trust proxy', 1);
+
 // 1. Keamanan Header (Helmet Konfigurasi Cross-Origin)
 app.use(
   helmet({
@@ -32,7 +35,7 @@ app.use(
   })
 );
 
-// Configuration CORS untuk mendukung Multiple Origin
+// 2. Konfigurasi CORS
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5000',
@@ -43,44 +46,30 @@ const allowedOrigins = [
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
+    // Izinkan request tanpa origin (seperti Postman, Curl, atau Mobile App)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(null, true); // Tetap izinkan untuk menghindari crash browser di lingkungan Vercel
+      callback(new Error('Akses diblokir oleh kebijakan CORS'));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'X-Requested-With',
-    'Accept',
-    'Origin',
-    'Access-Control-Allow-Origin',
-  ],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   credentials: true,
   optionsSuccessStatus: 200,
 };
 
-// Pasang CORS Middleware secara global
+// Pasang CORS untuk seluruh route (termasuk penanganan otomatis Preflight OPTIONS)
 app.use(cors(corsOptions));
 
-// Direct Handling Preflight Request (HTTP OPTIONS) untuk memastiikan header CORS terisi
-app.use((req: Request, res: Response, next: NextFunction) => {
-  if (req.method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Origin', req.headers.origin || 'https://www.themavia.com');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    return res.status(200).end();
-  }
-  next();
-});
+// 3. Body Parser
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// 2. Rate Limiting
+// 4. Rate Limiting (Dipasang setelah parsing dan CORS)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 menit
-  max: 100, // Maksimal 100 request per IP dalam 15 menit
+  max: 100, // Maksimal 100 request per IP per jendela waktu
   message: {
     success: false,
     message: 'Terlalu banyak permintaan dari IP ini, silakan coba lagi nanti.',
@@ -89,13 +78,10 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Terapkan rate-limiter hanya ke endpoint API utama
 app.use('/api', limiter);
 
-// 3. Body Parser
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// 4. Health Check & Root Route
+// 5. Health Check & Root Route
 app.get('/', (_req: Request, res: Response) => {
   res.json({ message: 'Welcome to tmv-hub API Server!' });
 });
@@ -104,7 +90,7 @@ app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'OK', message: 'TMV Hub API Server Running Healthy' });
 });
 
-// 5. Registrasi API Routes
+// 6. Registrasi API Routes
 app.use('/api/auth', authRouter);
 app.use('/api/products', productRouter);
 app.use('/api/cart', cartRouter);
@@ -114,11 +100,11 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/licenses', licenseRoutes);
 app.use('/api/download', downloadRouter);
 
-// 6. 404 & Global Error Handling Middleware
+// 7. 404 & Global Error Handling Middleware
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// Jalankan listener hanya jika berada di environment Local/Development non-Vercel
+// Listener untuk lingkungan lokal
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
     console.log(`[SERVER] tmv-hub backend berjalan pada port ${PORT}`);

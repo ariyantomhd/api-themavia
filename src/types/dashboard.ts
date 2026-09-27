@@ -1,4 +1,14 @@
+// src/types/dashboard.ts
 import { UserRole } from './enums';
+
+export interface DashboardUser {
+  id: string;
+  username: string;
+  email: string;
+  avatar_url: string | null;
+  role: UserRole;
+  created_at: string;
+}
 
 export interface DashboardStats {
   total_spent: number;
@@ -28,14 +38,7 @@ export interface PurchasedProduct {
 }
 
 export interface UserDashboardData {
-  user: {
-    id: string;
-    username: string;
-    email: string;
-    avatar_url: string | null;
-    role: UserRole;
-    created_at: string;
-  };
+  user: DashboardUser;
   stats: DashboardStats;
   recent_orders: RecentOrder[];
   purchased_products: PurchasedProduct[];

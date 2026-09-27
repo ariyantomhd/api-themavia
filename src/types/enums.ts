@@ -1,5 +1,29 @@
-export type UserRole = 'ADMIN' | 'STAFF' | 'SELLER' | 'BUYER' | 'REGULATOR';
+// src/types/enums.ts
+
+export type UserRole = 'ADMIN' | 'STAFF' | 'SELLER' | 'BUYER' | 'REGULATOR' | 'USER';
+export const UserRole = {
+  ADMIN: 'ADMIN' as UserRole,
+  STAFF: 'STAFF' as UserRole,
+  SELLER: 'SELLER' as UserRole,
+  BUYER: 'BUYER' as UserRole,
+  REGULATOR: 'REGULATOR' as UserRole,
+  USER: 'USER' as UserRole,
+} as const;
+
 export type AccountStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING_VERIFICATION';
+export const AccountStatus = {
+  ACTIVE: 'ACTIVE' as AccountStatus,
+  SUSPENDED: 'SUSPENDED' as AccountStatus,
+  PENDING_VERIFICATION: 'PENDING_VERIFICATION' as AccountStatus,
+} as const;
+
+export type AuthStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED';
+export const AuthStatus = {
+  PENDING: 'PENDING' as AuthStatus,
+  ACTIVE: 'ACTIVE' as AuthStatus,
+  SUSPENDED: 'SUSPENDED' as AuthStatus,
+} as const;
+
 export type AffiliateStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' | 'DENIED';
 export type ProductStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED';
 export type LicenseType = 'REGULAR' | 'EXTENDED';
@@ -11,9 +35,32 @@ export type RefundStatus = 'PENDING' | 'UNDER_INVESTIGATION' | 'APPROVED' | 'REJ
 export type FeeType = 'FIXED' | 'PERCENTAGE';
 export type PostStatus = 'DRAFT' | 'PUBLISHED';
 export type BlogPostStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+
 export type PaymentGateway = 'PAYPAL' | 'STRIPE' | 'MIDTRANS';
+export const PaymentGateway = {
+  PAYPAL: 'PAYPAL' as PaymentGateway,
+  STRIPE: 'STRIPE' as PaymentGateway,
+  MIDTRANS: 'MIDTRANS' as PaymentGateway,
+} as const;
+
 export type DiscountType = 'percentage' | 'fixed';
-export type TransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDED' | 'CANCELLED';
+
+export type TransactionStatus = 'PENDING' | 'SUCCESS' | 'PAID' | 'FAILED' | 'REFUNDED' | 'CANCELLED';
+export const TransactionStatus = {
+  PENDING: 'PENDING' as TransactionStatus,
+  SUCCESS: 'SUCCESS' as TransactionStatus,
+  PAID: 'PAID' as TransactionStatus,
+  FAILED: 'FAILED' as TransactionStatus,
+  REFUNDED: 'REFUNDED' as TransactionStatus,
+  CANCELLED: 'CANCELLED' as TransactionStatus,
+} as const;
+
+export type DownloadStatus = 'SUCCESS' | 'FAILED' | 'UNAUTHORIZED';
+export const DownloadStatus = {
+  SUCCESS: 'SUCCESS' as DownloadStatus,
+  FAILED: 'FAILED' as DownloadStatus,
+  UNAUTHORIZED: 'UNAUTHORIZED' as DownloadStatus,
+} as const;
 
 // Security & Regulator Enums
 export type ModuleKey =

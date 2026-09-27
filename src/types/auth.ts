@@ -21,6 +21,9 @@ export interface RegisterPayload {
   fullName: string;
 }
 
+// Menambahkan RegisterDTO sebagai alias agar sinkron dengan auth.service.ts
+export type RegisterDTO = RegisterPayload;
+
 export interface LoginPayload {
   email: string;
   password: string;
